@@ -1,122 +1,60 @@
-
-
 import java.io.*;
 import java.util.Scanner;
+import java.util.Map;
+import java.util.TreeMap;
 
+interface Brainfuck {
+    static void main(String[] args) throws IOException {
+        compile(args[0]);
+    }
 
-class Brainfuck {
-	public static void main(String[] args)
-			throws IOException {
-		try {
-			compile(args[0]);
-		} catch (ArrayIndexOutOfBoundsException e) {
-			return;
-		}
-	}
+    Map<Character, String> brainFuckToC = new TreeMap<Character, String>() {{
+        put('>', "++ptr;");
+        put('<', "--ptr;");
+        put('+', "++(*ptr);");
+        put('-', "--(*ptr);");
+        put('.', "putchar(*ptr);");
+        put(',', "*ptr = getchar();");
+        put('[', "\nwhile (*ptr) {");
+        put(']', "}\n");
+    }};
 
-	static void compile(String bFileName)
-			throws IOException {
-		Scanner scanner = new Scanner(new File(bFileName));
+    static void compile(String brainFuckSourceFileName) throws IOException {
+        Scanner sourceReader = new Scanner(new File(brainFuckSourceFileName));
 
-		String cFileName = bFileName + ".c";
+        String cFileName = brainFuckSourceFileName + ".c";
 
-		File cfile = new File(cFileName);
-		if (!cfile.exists()) {
-			try {
-				cfile.createNewFile();
-			} catch (Exception e) {
-				return;
-			}
-		}
+        File cfile = new File(cFileName);
+        cfile.createNewFile();
 
-		PrintWriter cout = new PrintWriter(cfile.getAbsoluteFile());
+        StringBuilder brainFuckSource = new StringBuilder();
+        sourceReader.forEachRemaining(brainFuckSource::append);
 
-		StringBuilder cCode = new StringBuilder(
-			"#include <stdlib.h>\n"
-			+ "#include <string.h>\n"
-			+ "#include <stdio.h>\n\n"
-			+ "int main(int argc, char* argv[])\n"
-			+ "{\n"
-			+ "\tint size = 30000;\n"
-			+ "\tif (argc > 1)\n"
-			+ "\t{\n"
-			+ "\t\tsize = atoi(argv[1]);\n"
-			+ "\t}\n"
-			+ "\tchar* arr = (char*) malloc(size);\n"
-			+ "\tmemset(arr, 0, size);"
-			+ "\tchar* ptr = arr;\n"
-		);
+        PrintWriter cout = new PrintWriter(cfile.getAbsoluteFile());
 
-		StringBuilder bfCodeBuilder = new StringBuilder();
+        StringBuilder cSource = new StringBuilder(
+            "#include <stdlib.h>\n"
+            + "#include <string.h>\n"
+            + "#include <stdio.h>\n\n"
+            + "int main(int argc, char* argv[]) {\n"
+            + "int size = 30000;\n"
+            + "if (argc > 1) size = atoi(argv[1]);\n"
+            + "char* arr = (char*) malloc(size);\n"
+            + "memset(arr, 0, size);\n"
+            + "char* ptr = arr;\n\n"
+        );
 
-		while (scanner.hasNext()) {
-			bfCodeBuilder.append(scanner.next());
-		}
+        for (int i = 0; i < brainFuckSource.length(); i++) {
+            String cLine = brainFuckToC.get(brainFuckSource.charAt(i));
+            cSource.append(cLine).append("\n");
+        }
 
-		String bfCode = bfCodeBuilder.toString();
+        cSource.append("\nreturn 0;\n}\n");
+        cout.print(cSource.toString());
+        cout.close();
 
-		StringBuffer nedding = new StringBuffer("\t");
-
-
-		// parsing ... not so interesting
-		parse : for (int i = 0; i < bfCode.length(); i++) {
-			switch (bfCode.charAt(i)) {
-			case '>':
-				cCode.append(nedding);
-				cCode.append("++ptr;\n");
-				break;
-
-			case '<':
-				cCode.append(nedding);
-				cCode.append("--ptr;\n");
-				break;
-
-			case '+':
-				cCode.append(nedding);
-				cCode.append("++(*ptr);\n");
-				break;
-
-			case '-':
-				cCode.append(nedding);
-				cCode.append("--(*ptr);\n");
-				break;
-
-			case '.':
-				cCode.append(nedding);
-				cCode.append("putchar(*ptr);\n");
-				break;
-
-			case ',':
-				cCode.append(nedding);
-				cCode.append("*ptr = getchar();\n");
-				break;
-
-			case '[':
-				cCode.append(nedding);
-				cCode.append("while (*ptr)\n");
-				cCode.append(nedding);
-				cCode.append("{\n");
-				nedding.append("\t");
-				break;
-
-			case ']':
-				nedding.deleteCharAt(nedding.length() - 1);
-				cCode.append(nedding);
-				cCode.append("}\n");
-				break;
-			default:
-				continue parse;
-			}
-		}
-
-		cCode.append("\treturn 0;\n}\n");
-		cout.print(cCode.toString());
-		cout.close();
-
-		Process proc = Runtime.getRuntime().exec(
-			"gcc " + cFileName + " -o " + bFileName + ".exe"
-		);
-	}
+        Process proc = Runtime.getRuntime().exec(new String[] {
+                "gcc", cFileName, "-o", brainFuckSourceFileName + ".out"
+        });
+    }
 }
-
-
